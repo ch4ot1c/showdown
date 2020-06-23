@@ -1,4 +1,4 @@
-;/*! showdown v 2.0.0-alpha1 - 04-10-2019 */
+;/*! showdown v 2.0.0-alpha1 - 22-06-2020 */
 (function(){
 /**
  * Created by Tivie on 13-07-2015.
@@ -3373,7 +3373,7 @@ showdown.subParser('makehtml.italicsAndBold', function (text, options, globals) 
     // to external links. Hash links (#) open in same page
     if (options.openLinksInNewWindow && !/^#/.test(url)) {
       // escaped _
-      target = ' target="¨E95Eblank"';
+      target = ' rel="noopener noreferrer" target="¨E95Eblank"';
     }
 
     // Text can be a markdown element, so we run through the appropriate parsers
@@ -3716,7 +3716,7 @@ showdown.subParser('makehtml.lists', function (text, options, globals) {
     // attacklab: add sentinel to emulate \z
     listStr += '¨0';
 
-    var rgx = /(\n)?(^ {0,3})([*+-]|\d+[.])[ \t]+((\[(x|X| )?])?[ \t]*[^\r]+?(\n{1,2}))(?=\n*(¨0| {0,3}([*+-]|\d+[.])[ \t]+))/gm,
+    var rgx = /(\n)?(^ {0,3})([*+-]|\d+[.])[ \t]+((\[(x|X| )])?[ \t]*[^\r]+?(\n{1,2}))(?=\n*(¨0| {0,3}([*+-]|\d+[.])[ \t]+))/gm,
         isParagraphed = (/\n[ \t]*\n(?!¨0)/.test(listStr));
 
     // Since version 1.5, nesting sublists requires 4 spaces (or 1 tab) indentation,
@@ -3724,7 +3724,7 @@ showdown.subParser('makehtml.lists', function (text, options, globals) {
     // activating this option reverts to old behavior
     // This will be removed in version 2.0
     if (options.disableForced4SpacesIndentedSublists) {
-      rgx = /(\n)?(^ {0,3})([*+-]|\d+[.])[ \t]+((\[(x|X| )?])?[ \t]*[^\r]+?(\n{1,2}))(?=\n*(¨0|\2([*+-]|\d+[.])[ \t]+))/gm;
+      rgx = /(\n)?(^ {0,3})([*+-]|\d+[.])[ \t]+((\[(x|X| )])?[ \t]*[^\r]+?(\n{1,2}))(?=\n*(¨0|\2([*+-]|\d+[.])[ \t]+))/gm;
     }
 
     listStr = listStr.replace(rgx, function (wholeMatch, m1, m2, m3, m4, taskbtn, checked) {
@@ -4122,14 +4122,19 @@ showdown.subParser('makehtml.strikethrough', function (text, options, globals) {
 showdown.subParser('makehtml.stripLinkDefinitions', function (text, options, globals) {
   'use strict';
 
-  var regex       = /^ {0,3}\[(.+)]:[ \t]*\n?[ \t]*<?([^>\s]+)>?(?: =([*\d]+[A-Za-z%]{0,4})x([*\d]+[A-Za-z%]{0,4}))?[ \t]*\n?[ \t]*(?:(\n*)["|'(](.+?)["|')][ \t]*)?(?:\n+|(?=¨0))/gm,
-      base64Regex = /^ {0,3}\[(.+)]:[ \t]*\n?[ \t]*<?(data:.+?\/.+?;base64,[A-Za-z0-9+/=\n]+?)>?(?: =([*\d]+[A-Za-z%]{0,4})x([*\d]+[A-Za-z%]{0,4}))?[ \t]*\n?[ \t]*(?:(\n*)["|'(](.+?)["|')][ \t]*)?(?:\n\n|(?=¨0)|(?=\n\[))/gm;
+  var regex       = /^ {0,3}\[([^\]]+)]:[ \t]*\n?[ \t]*<?([^>\s]+)>?(?: =([*\d]+[A-Za-z%]{0,4})x([*\d]+[A-Za-z%]{0,4}))?[ \t]*\n?[ \t]*(?:(\n*)["|'(](.+?)["|')][ \t]*)?(?:\n+|(?=¨0))/gm,
+      base64Regex = /^ {0,3}\[([^\]]+)]:[ \t]*\n?[ \t]*<?(data:.+?\/.+?;base64,[A-Za-z0-9+/=\n]+?)>?(?: =([*\d]+[A-Za-z%]{0,4})x([*\d]+[A-Za-z%]{0,4}))?[ \t]*\n?[ \t]*(?:(\n*)["|'(](.+?)["|')][ \t]*)?(?:\n\n|(?=¨0)|(?=\n\[))/gm;
 
   // attacklab: sentinel workarounds for lack of \A and \Z, safari\khtml bug
   text += '¨0';
 
   var replaceFunc = function (wholeMatch, linkId, url, width, height, blankLines, title) {
+
+    // if there aren't two instances of linkId it must not be a reference link so back out
     linkId = linkId.toLowerCase();
+    if (text.toLowerCase().split(linkId).length - 1 < 2) {
+      return wholeMatch;
+    }
     if (url.match(/^data:.+?\/.+?;base64,/)) {
       // remove newlines
       globals.gUrls[linkId] = url.replace(/\s/g, '');
@@ -4657,6 +4662,10 @@ showdown.subParser('makeMarkdown.node', function (node, globals, spansOnly) {
       txt = showdown.subParser('makeMarkdown.break')(node, globals);
       break;
 
+    case 'u':
+      txt = showdown.subParser('makeMarkdown.underline')(node, globals);
+      break;
+
     default:
       txt = node.outerHTML + '\n\n';
   }
@@ -4852,6 +4861,22 @@ showdown.subParser('makeMarkdown.txt', function (node) {
   // reference URIs must also be escaped
   txt = txt.replace(/^ {0,3}\[([\S \t]*?)]:/gm, '\\[$1]:');
 
+  return txt;
+});
+
+showdown.subParser('makeMarkdown.underline', function (node, globals) {
+  'use strict';
+
+  var txt = '';
+  if (node.hasChildNodes()) {
+    txt += '__';
+    var children = node.childNodes,
+        childrenLength = children.length;
+    for (var i = 0; i < childrenLength; ++i) {
+      txt += showdown.subParser('makeMarkdown.node')(children[i], globals);
+    }
+    txt += '__';
+  }
   return txt;
 });
 
@@ -5250,7 +5275,7 @@ showdown.Converter = function (converterOptions) {
       for (var n = 0; n < node.childNodes.length; ++n) {
         var child = node.childNodes[n];
         if (child.nodeType === 3) {
-          if (!/\S/.test(child.nodeValue)) {
+          if (!/\S/.test(child.nodeValue) && !/^[ ]+$/.test(child.nodeValue)) {
             node.removeChild(child);
             --n;
           } else {
